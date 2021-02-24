@@ -33,8 +33,15 @@ def compute_loss_and_accuracy(
             output_probs = model(X_batch)
 
             # Compute Loss and Accuracy
+            loss = loss_criterion(output_probs, Y_batch)
 
-    return average_loss, accuracy
+
+            average_loss += loss.item()
+            accuracy += (output_probs == Y_batch).float().sum()
+            print(len(dataloader))
+
+
+    return average_loss/len(dataloader), accuracy/len(dataloader)
 
 
 class Trainer:

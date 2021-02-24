@@ -2,6 +2,7 @@ import pathlib
 import matplotlib.pyplot as plt
 import utils
 from torch import nn
+import torch.nn.functional as F
 from dataloaders import load_cifar10
 from trainer import Trainer, compute_loss_and_accuracy
 
@@ -22,25 +23,42 @@ class ExampleModel(nn.Module):
         num_filters = 32  # Set number of filters in first conv layer
         self.num_classes = num_classes
         # Define the convolutional layers
+
         self.feature_extractor = nn.Sequential(
             nn.Conv2d(
                 in_channels=image_channels,
                 out_channels=num_filters,
                 kernel_size=5,
                 stride=1,
-                padding=2
-            )
-        )
+                padding=2))
+
+        self.feature_extractor2 = nn.Sequential(
+            nn.Conv2d(
+                in_channels=num_filters,
+                out_channels=64,
+                kernel_size=5,
+                stride=1,
+                padding=2))
+
+        self.feature_extractor3 = nn.Sequential(
+            nn.Conv2d(
+                in_channels=64,
+                out_channels=128,
+                kernel_size=5,
+                stride=1,
+                padding=2))
+
         # The output of feature_extractor will be [batch_size, num_filters, 16, 16]
-        self.num_output_features = 32*32*32
+        # self.num_output_features = 32*32*32  ---> confusing?
         # Initialize our last fully connected layer
         # Inputs all extracted features from the convolutional layers
         # Outputs num_classes predictions, 1 for each class.
         # There is no need for softmax activation function, as this is
         # included with nn.CrossEntropyLoss
+        self.fc1 = nn.Sequential(
+            nn.Linear(128 * 4 * 4, 64))
         self.classifier = nn.Sequential(
-            nn.Linear(self.num_output_features, num_classes),
-        )
+            nn.Linear(64, num_classes))
 
     def forward(self, x):
         """
@@ -50,7 +68,13 @@ class ExampleModel(nn.Module):
         """
         # TODO: Implement this function (Task  2a)
         batch_size = x.shape[0]
-        out = x
+
+        x = F.max_pool2d(F.relu(self.feature_extractor(x)), (2, 2))
+        x = F.max_pool2d(F.relu(self.feature_extractor2(x)), (2, 2))
+        x = F.max_pool2d(F.relu(self.feature_extractor3(x)), (2, 2))
+        x = x.view(-1, 128 * 4 * 4)
+        x = F.relu(self.fc1(x))
+        out = self.classifier(x)
         expected_shape = (batch_size, self.num_classes)
         assert out.shape == (batch_size, self.num_classes),\
             f"Expected output of forward pass to be: {expected_shape}, but got: {out.shape}"
